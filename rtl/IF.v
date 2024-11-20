@@ -6,59 +6,63 @@ module IF(
 input wire clk,
 input wire rst_n,
 
-//instruction memory interface
-input wire [31:0] i_inst,  //instruction code received from the instruction memory
-input wire i_imem_ack,     //ack by instruction memory (active high)
-output reg o_imem_stb,     //stub signal for instruction memroy
-output reg [31:0] o_iaddr, //instruction address
+input wire [31:0] i_Inst,  
+input wire i_Imem_ack,     
+output reg o_Imem_stb,     
+output reg [31:0] o_Iaddr, 
 
-//Change in PC
-input wire [31:0] i_imm,
-input wire [31:0] i_result,
-input wire i_boj,
-input wire i_jalr,
+input wire [31:0] i_Imm,
+input wire [31:0] i_Result,
+input wire i_Boj,
+input wire i_Jalr,
 
-// register outputs
 output wire [31:0] o_InstrD,
 output wire [31:0] o_PcD
 );
 
 //internal signals and registers
-wire [31:0] o_pc;
-reg [31:0] o_instr; 
-wire is_stall = !i_imem_ack & rst_n;
-wire [31:0] is_pc_increment;
-reg [31:0] flopr;
-wire [31:0] pc;
+
+wire [31:0] o_Pc;
+wire is_stall = !i_Imem_ack & rst_n;
+wire [31:0] is_Pc_increment;
+reg [31:0] Pc;
+reg [31:0] o_Instr;
 
 //IF registers
-reg [31:0] InstrF_reg;
-reg [31:0] PCF_reg; 
+reg [31:0] Instr_reg;
+reg [31:0] Pc_reg; 
 
-assign is_pc_increment = is_stall ? 32'd0 : (i_boj ? i_imm : 32'd4 );
-assign pc = i_jalr ? i_result &~1 : (flopr);
-assign o_pc = pc;
+assign is_Pc_increment = i_Boj ? i_Imm : ( is_stall ? 32'd0 : 32'd4 );
+assign o_Pc = Pc;
 
 always @(posedge clk)
 begin
 	if(~rst_n)
 	begin
-		flopr <= `PC_RESET;
+		Pc <= `PC_RESET;
 	end
-	else 
+	else if(is_stall)
 	begin
-		flopr <= flopr + is_pc_increment;
+		Pc <= Pc;
+	end
+	else if(i_Jalr)
+	begin
+		Pc <= i_Result &~1;	
+	end
+	else
+	begin
+		Pc <= Pc + is_Pc_increment;
 	end
 
 	if(~rst_n)
 	begin
-		InstrF_reg <= 32'b0;
-		PCF_reg <= 32'b0;
+		Instr_reg <= 32'b0;
+		Pc_reg <= 32'b0;
 		end
 	else
 		begin
-		InstrF_reg <= o_instr;
-		PCF_reg <= o_pc;
+		Instr_reg <= o_Instr;
+		Pc_reg <= o_Pc;
 		end
 end
 
@@ -66,20 +70,20 @@ always @(*)
 begin
 	if(~rst_n)
 	begin
-		o_iaddr = 32'd0;
-		o_imem_stb = 1'b0;
-		o_instr = `NOP;
+		o_Iaddr = 32'd0;
+		o_Imem_stb = 1'b0;
+		o_Instr = `NOP;
 	end
 	else if(is_stall)
-		o_instr = `NOP;
+		o_Instr = `NOP;
 	else
 	begin
-		o_iaddr = pc;
-		o_imem_stb = 1'b1;
-		o_instr = i_inst;
+		o_Iaddr = Pc;
+		o_Imem_stb = 1'b1;
+		o_Instr = i_Inst;
 	end
 end
 
-assign o_InstrD = ~rst_n ? 32'b0 : InstrF_reg;
-assign o_PcD = ~rst_n ? 32'b0 : PCF_reg;
+assign o_InstrD = ~rst_n ? 32'b0 : Instr_reg;
+assign o_PcD = ~rst_n ? 32'b0 : Pc_reg;
 endmodule
